@@ -11,10 +11,8 @@ import (
 type Element[K, V any] struct {
 	elementHeader[K, V]
 
-	Value V
-	key   K
-	score float64
-
+	Value        V
+	key          K
 	prev         *Element[K, V]  // Points to previous adjacent elem.
 	prevTopLevel *Element[K, V]  // Points to previous element which points to this element's top most level.
 	list         *SkipList[K, V] // The list contains this elem.
@@ -97,13 +95,6 @@ func (elem *Element[K, V]) Key() K {
 	return elem.key
 }
 
-// Score returns the score of this element.
-// The score is a hint when comparing elements.
-// Skip list keeps all elements sorted by score from smallest to largest.
-func (elem *Element[K, V]) Score() float64 {
-	return elem.score
-}
-
 // Level returns the level of this elem.
 func (elem *Element[K, V]) Level() int {
 	return len(elem.levels)
@@ -113,5 +104,12 @@ func (elem *Element[K, V]) reset() {
 	elem.list = nil
 	elem.prev = nil
 	elem.prevTopLevel = nil
-	elem.levels = nil
+	elem.levels = elem.levels[:0]
+}
+
+func resetLevels[K, V any](levels []*Element[K, V]) {
+	levels[0] = nil
+	for bp := 1; bp < len(levels); bp *= 2 {
+		copy(levels[bp:], levels[:bp])
+	}
 }

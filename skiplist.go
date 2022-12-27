@@ -53,8 +53,8 @@ const preallocDefaultMaxLevel = 48
 // SkipList is the header of a skip list.
 type SkipList[K, V any] struct {
 	elementHeader[K, V]
-	probTable []float64
-
+	probTable  []float64
+	pool       *elementPool[K, V]
 	comparable Comparable[K]
 	rand       *rand.Rand
 
@@ -76,6 +76,7 @@ func New[K, V any](comparable Comparable[K]) *SkipList[K, V] {
 		elementHeader: elementHeader[K, V]{
 			levels: make([]*Element[K, V], DefaultMaxLevel),
 		},
+		pool:       newElementPool[K, V](),
 		probTable:  probabilityTable(DefaultProbability, DefaultMaxLevel),
 		comparable: comparable,
 		rand:       rand.New(source),
@@ -130,8 +131,8 @@ func (list *SkipList[K, V]) Set(key K, value V) (elem *Element[K, V]) {
 	// Happy path for empty list.
 	if list.length == 0 {
 		level := list.randLevel()
-		elem = newElement(list, level, key, value)
-
+		elem = list.pool.Get(list, level, key, value)
+		//elem = newElement(list, level, key, value)
 		for i := 0; i < level; i++ {
 			list.levels[i] = elem
 		}
@@ -184,8 +185,8 @@ func (list *SkipList[K, V]) Set(key K, value V) (elem *Element[K, V]) {
 
 	// Create a new element.
 	level := list.randLevel()
-	elem = newElement(list, level, key, value)
-
+	elem = list.pool.Get(list, level, key, value)
+	//elem = newElement(list, level, key, value)
 	// Set up prev element.
 	if prev := prevElemHeaders[0]; prev != &list.elementHeader {
 		elem.prev = prev.Element()
@@ -241,15 +242,18 @@ func (list *SkipList[K, V]) findNext(start *Element[K, V], key K) (elem *Element
 	if list.length == 0 {
 		return
 	}
+	if start == nil {
+		if list.compare(key, list.Front()) <= 0 {
+			elem = list.Front()
+			return
+		}
+	} else {
+		if list.compare(key, start) <= 0 {
+			elem = start
+			return
+		}
+	}
 
-	if start == nil && list.compare(key, list.Front()) <= 0 {
-		elem = list.Front()
-		return
-	}
-	if start != nil && list.compare(key, start) <= 0 {
-		elem = start
-		return
-	}
 	if list.compare(key, list.Back()) > 0 {
 		return
 	}
@@ -451,6 +455,7 @@ func (list *SkipList[K, V]) RemoveElement(elem *Element[K, V]) {
 
 	list.length--
 	elem.reset()
+	list.pool.Put(elem)
 }
 
 // MaxLevel returns current max level value.
