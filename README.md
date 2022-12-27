@@ -11,8 +11,13 @@ Skip list is an ordered map. See wikipedia page [skip list](http://en.wikipedia.
 
 Highlights in this implementation:
 - Based on generic  **No reflection, No interface{}**
+- Use of memory pool 
+  - Memory efficiency in use cases where insertion and deletion occur complexly
 - Support custom comparable function so that any type can be used as key.
 - Rand source and max level can be changed per list. It can be useful in performance critical scenarios.
+
+## Warrning
+Not fully tested
 
 ## Install
 
