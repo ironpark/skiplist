@@ -1,17 +1,17 @@
 # Skip List in Golang
 
-[![Go](https://github.com/huandu/skiplist/workflows/Go/badge.svg)](https://github.com/huandu/skiplist/actions)
-[![Go Doc](https://godoc.org/github.com/huandu/skiplist?status.svg)](https://pkg.go.dev/github.com/huandu/skiplist)
-[![Go Report](https://goreportcard.com/badge/github.com/huandu/skiplist)](https://goreportcard.com/report/github.com/huandu/skiplist)
-[![Coverage Status](https://coveralls.io/repos/github/huandu/skiplist/badge.svg?branch=master)](https://coveralls.io/github/huandu/skiplist?branch=master)
+[![Go](https://github.com/ironpark/skiplist/workflows/Go/badge.svg)](https://github.com/ironpark/skiplist/actions)
+[![Go Doc](https://godoc.org/github.com/ironpark/skiplist?status.svg)](https://pkg.go.dev/github.com/huandu/skiplist)
+[![Go Report](https://goreportcard.com/badge/github.com/ironpark/skiplist)](https://goreportcard.com/report/github.com/huandu/skiplist)
+[![Coverage Status](https://coveralls.io/repos/github/ironpark/skiplist/badge.svg?branch=master)](https://coveralls.io/github/huandu/skiplist?branch=master)
+
+This package was created by forking the skiplist library that [Huandu's](https://github.com/huandu) great job
 
 Skip list is an ordered map. See wikipedia page [skip list](http://en.wikipedia.org/wiki/Skip_list) to learn algorithm details about this data structure.
 
 Highlights in this implementation:
 
-- Built-in types can be used as key with predefined key types. See [Int](https://pkg.go.dev/github.com/huandu/skiplist#Int) and related constants as a sample.
 - Support custom comparable function so that any type can be used as key.
-- Key sort order can be changed quite easily. See [Reverse](https://pkg.go.dev/github.com/huandu/skiplist#Reverse) and [LessThanFunc](https://pkg.go.dev/github.com/huandu/skiplist#LessThanFunc).
 - Rand source and max level can be changed per list. It can be useful in performance critical scenarios.
 
 ## Install
@@ -19,7 +19,7 @@ Highlights in this implementation:
 Install this package through `go get`.
 
 ```bash
-    go get github.com/huandu/skiplist
+    go get github.com/ironpark/skiplist
 ```
 
 ## Basic Usage
@@ -31,13 +31,12 @@ package main
 
 import (
     "fmt"
-
-    "github.com/huandu/skiplist"
+    "github.com/ironpark/skiplist"
 )
 
 func main() {
     // Create a skip list with int key.
-    list := skiplist.New(skiplist.Int)
+    list := skiplist.New[int,any](skiplist.NumberComparator[int])
 
     // Add some values. Value can be anything.
     list.Set(12, "hello world")
@@ -64,37 +63,6 @@ func main() {
 }
 ```
 
-## Using `GreaterThanFunc` and `LessThanFunc`
-
-Define your own `GreaterThanFunc` or `LessThanFunc` to use any custom type as the key in a skip list.
-
-The signature of `GreaterThanFunc` are `LessThanFunc` are the same.
-The only difference between them is that `LessThanFunc` reverses result returned by custom func
-to make the list ordered by key in a reversed order.
-
-```go
-type T struct {
-    Rad float64
-}
-list := New(GreaterThanFunc(func(k1, k2 interface{}) int {
-    s1 := math.Sin(k1.(T).Rad)
-    s2 := math.Sin(k2.(T).Rad)
-
-    if s1 > s2 {
-        return 1
-    } else if s1 < s2 {
-        return -1
-    }
-
-    return 0
-}))
-list.Set(T{math.Pi / 8}, "sin(π/8)")
-list.Set(T{math.Pi / 2}, "sin(π/2)")
-list.Set(T{math.Pi}, "sin(π)")
-
-fmt.Println(list.Front().Value) // Output: sin(π)
-fmt.Println(list.Back().Value)  // Output: sin(π/2)
-```
 
 ## License
 
