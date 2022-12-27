@@ -34,6 +34,7 @@ package skiplist
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"time"
 )
@@ -41,7 +42,10 @@ import (
 // DefaultMaxLevel is the default level for all newly created skip lists.
 // It can be changed globally. Changing it will not affect existing lists.
 // And all skip lists can update max level after creation through `SetMaxLevel()` method.
-var DefaultMaxLevel = 48
+const (
+	DefaultMaxLevel            = 18
+	DefaultProbability float64 = 1 / math.E
+)
 
 // preallocDefaultMaxLevel is a constant to alloc memory on stack when Set new element.
 const preallocDefaultMaxLevel = 48
@@ -49,6 +53,7 @@ const preallocDefaultMaxLevel = 48
 // SkipList is the header of a skip list.
 type SkipList[K, V any] struct {
 	elementHeader[K, V]
+	probTable []float64
 
 	comparable Comparable[K]
 	rand       *rand.Rand
@@ -66,16 +71,15 @@ func New[K, V any](comparable Comparable[K]) *SkipList[K, V] {
 	if DefaultMaxLevel <= 0 {
 		panic("skiplist default level must not be zero or negative")
 	}
-
 	source := rand.NewSource(time.Now().UnixNano())
 	return &SkipList[K, V]{
 		elementHeader: elementHeader[K, V]{
 			levels: make([]*Element[K, V], DefaultMaxLevel),
 		},
+		probTable:  probabilityTable(DefaultProbability, DefaultMaxLevel),
 		comparable: comparable,
 		rand:       rand.New(source),
-
-		maxLevel: DefaultMaxLevel,
+		maxLevel:   DefaultMaxLevel,
 	}
 }
 
@@ -460,7 +464,7 @@ func (list *SkipList[K, V]) SetMaxLevel(level int) (old int) {
 	if level <= 0 {
 		panic(fmt.Errorf("skiplist: level must be larger than 0 (current is %v)", level))
 	}
-
+	list.probTable = probabilityTable(DefaultProbability, level)
 	list.maxLevel = level
 	old = len(list.levels)
 
@@ -491,19 +495,25 @@ func (list *SkipList[K, V]) SetMaxLevel(level int) (old int) {
 	return
 }
 
-func (list *SkipList[K, V]) randLevel() int {
-	estimated := list.maxLevel
-	const prob = 1 << 30 // Half of 2^31.
-	rand := list.rand
-	i := 1
+func (list *SkipList[K, V]) randLevel() (level int) {
+	r := float64(list.rand.Int63()) / (1 << 63)
+	for level = 1; level < list.maxLevel && r < list.probTable[level]; level++ {
 
-	for ; i < estimated; i++ {
-		if rand.Int31() < prob {
-			break
-		}
+	}
+	return
+}
+
+// probabilityTable calculates in advance the probability of a new node having a given level.
+// probability is in [0, 1], MaxLevel is [0, 64]
+// Returns a table of floating point probabilities that each level should be included during an insert.
+// original by https://github.com/sean-public/fast-skiplist
+func probabilityTable(probability float64, MaxLevel int) (table []float64) {
+	for i := 1; i <= MaxLevel; i++ {
+		prob := math.Pow(probability, float64(i-1))
+		table = append(table, prob)
 	}
 
-	return i
+	return table
 }
 
 // compare compares value of two elements and returns -1, 0 and 1.

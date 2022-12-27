@@ -4,9 +4,21 @@
 package skiplist
 
 import (
+	"fmt"
 	"github.com/huandu/go-assert"
 	"testing"
 )
+
+var testByteString = []byte(fmt.Sprint("test value"))
+
+func BenchmarkInsert(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		list := New[int, interface{}](NumberComparator[int])
+		for i := 0; i < 10000000; i++ {
+			list.Set(b.N-i, testByteString)
+		}
+	}
+}
 
 func TestBasicCRUD(t *testing.T) {
 	a := assert.New(t)
