@@ -2,9 +2,8 @@
 
 [![Go](https://github.com/ironpark/skiplist/workflows/Go/badge.svg)](https://github.com/ironpark/skiplist/actions)
 [![Go Doc](https://godoc.org/github.com/ironpark/skiplist?status.svg)](https://pkg.go.dev/github.com/ironpark/skiplist)
-[![Go Report](https://goreportcard.com/badge/github.com/ironpark/skiplist)](https://goreportcard.com/report/github.com/ironpark/skiplist)
-[![Coverage Status](https://coveralls.io/repos/github/ironpark/skiplist/badge.svg?branch=master)](https://coveralls.io/github/ironpark/skiplist?branch=master)
-
+[![Go Report](https://goreportcard.com/badge/github.com/Ironpark/skiplist)](https://goreportcard.com/report/github.com/Ironpark/skiplist)
+[![Coverage Status](https://coveralls.io/repos/github/Ironpark/skiplist/badge.svg?branch=master)](https://coveralls.io/github/Ironpark/skiplist?branch=master)
 This package was created by forking the skiplist library that [Huandu's](https://github.com/huandu) great job
 
 Skip list is an ordered map. See wikipedia page [skip list](http://en.wikipedia.org/wiki/Skip_list) to learn algorithm details about this data structure.
