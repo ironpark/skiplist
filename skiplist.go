@@ -8,28 +8,28 @@
 //
 // Here is a sample to use this package.
 //
-//     // Creates a new skip list and restricts key type to int-like types.
-//     list := skiplist.New(skiplist.Int)
+//	// Creates a new skip list and restricts key type to int-like types.
+//	list := skiplist.New(skiplist.Int)
 //
-//     // Adds some values for keys.
-//     list.Set(20, "Hello")
-//     list.Set(10, "World")
-//     list.Set(40, true) // Value type is not restricted.
-//     list.Set(40, 1000) // Replace the of an existing element.
+//	// Adds some values for keys.
+//	list.Set(20, "Hello")
+//	list.Set(10, "World")
+//	list.Set(40, true) // Value type is not restricted.
+//	list.Set(40, 1000) // Replace the of an existing element.
 //
-//     // Finds elements.
-//     e := list.Get(10)           // Returns the element with the key.
-//     _ = e.Value.(string)
-//     v, ok := list.GetValue(20)  // Directly get value of the element. If the key is not found, ok is false.
-//     v2 := list.MustGetValue(10) // Directly get value of the element. Panic if the key is not found.
-//     notFound := list.Get(15)    // Returns nil if the key is not found.
+//	// Finds elements.
+//	e := list.Get(10)           // Returns the element with the key.
+//	_ = e.Value.(string)
+//	v, ok := list.GetValue(20)  // Directly get value of the element. If the key is not found, ok is false.
+//	v2 := list.MustGetValue(10) // Directly get value of the element. Panic if the key is not found.
+//	notFound := list.Get(15)    // Returns nil if the key is not found.
 //
-//     // Removes an element and gets removed element.
-//     old := list.Remove(40)
-//     notFound := list.Remove(-20) // Returns nil if the key is not found.
+//	// Removes an element and gets removed element.
+//	old := list.Remove(40)
+//	notFound := list.Remove(-20) // Returns nil if the key is not found.
 //
-//     // Initializes the list again to clean up all elements in the list.
-//     list.Init()
+//	// Initializes the list again to clean up all elements in the list.
+//	list.Init()
 package skiplist
 
 import (
@@ -47,32 +47,31 @@ var DefaultMaxLevel = 48
 const preallocDefaultMaxLevel = 48
 
 // SkipList is the header of a skip list.
-type SkipList struct {
-	elementHeader
+type SkipList[K, V any] struct {
+	elementHeader[K, V]
 
-	comparable Comparable
+	comparable Comparable[K]
 	rand       *rand.Rand
 
 	maxLevel int
 	length   int
-	back     *Element
+	back     *Element[K, V]
 }
 
 // New creates a new skip list with comparable to compare keys.
 //
 // There are lots of pre-defined strict-typed keys like Int, Float64, String, etc.
 // We can create custom comparable by implementing Comparable interface.
-func New(comparable Comparable) *SkipList {
+func New[K, V any](comparable Comparable[K]) *SkipList[K, V] {
 	if DefaultMaxLevel <= 0 {
 		panic("skiplist default level must not be zero or negative")
 	}
 
 	source := rand.NewSource(time.Now().UnixNano())
-	return &SkipList{
-		elementHeader: elementHeader{
-			levels: make([]*Element, DefaultMaxLevel),
+	return &SkipList[K, V]{
+		elementHeader: elementHeader[K, V]{
+			levels: make([]*Element[K, V], DefaultMaxLevel),
 		},
-
 		comparable: comparable,
 		rand:       rand.New(source),
 
@@ -81,10 +80,10 @@ func New(comparable Comparable) *SkipList {
 }
 
 // Init resets the list and discards all existing elements.
-func (list *SkipList) Init() *SkipList {
+func (list *SkipList[K, V]) Init() *SkipList[K, V] {
 	list.back = nil
 	list.length = 0
-	list.levels = make([]*Element, len(list.levels))
+	list.levels = make([]*Element[K, V], len(list.levels))
 	return list
 }
 
@@ -93,28 +92,28 @@ func (list *SkipList) Init() *SkipList {
 // Skiplist uses global rand defined in math/rand by default.
 // The default rand acquires a global mutex before generating any number.
 // It's not necessary if the skiplist is well protected by caller.
-func (list *SkipList) SetRandSource(source rand.Source) {
+func (list *SkipList[K, V]) SetRandSource(source rand.Source) {
 	list.rand = rand.New(source)
 }
 
 // Front returns the first element.
 //
 // The complexity is O(1).
-func (list *SkipList) Front() (front *Element) {
+func (list *SkipList[K, V]) Front() (front *Element[K, V]) {
 	return list.levels[0]
 }
 
 // Back returns the last element.
 //
 // The complexity is O(1).
-func (list *SkipList) Back() *Element {
+func (list *SkipList[K, V]) Back() *Element[K, V] {
 	return list.back
 }
 
 // Len returns element count in this list.
 //
 // The complexity is O(1).
-func (list *SkipList) Len() int {
+func (list *SkipList[K, V]) Len() int {
 	return list.length
 }
 
@@ -123,13 +122,11 @@ func (list *SkipList) Len() int {
 // Returns the element holding the key and value.
 //
 // The complexity is O(log(N)).
-func (list *SkipList) Set(key, value interface{}) (elem *Element) {
-	score := list.calcScore(key)
-
+func (list *SkipList[K, V]) Set(key K, value V) (elem *Element[K, V]) {
 	// Happy path for empty list.
 	if list.length == 0 {
 		level := list.randLevel()
-		elem = newElement(list, level, score, key, value)
+		elem = newElement(list, level, key, value)
 
 		for i := 0; i < level; i++ {
 			list.levels[i] = elem
@@ -144,20 +141,20 @@ func (list *SkipList) Set(key, value interface{}) (elem *Element) {
 	max := len(list.levels)
 	prevHeader := &list.elementHeader
 
-	var maxStaticAllocElemHeaders [preallocDefaultMaxLevel]*elementHeader
-	var prevElemHeaders []*elementHeader
+	var maxStaticAllocElemHeaders [preallocDefaultMaxLevel]*elementHeader[K, V]
+	var prevElemHeaders []*elementHeader[K, V]
 
 	if max <= preallocDefaultMaxLevel {
 		prevElemHeaders = maxStaticAllocElemHeaders[:max]
 	} else {
-		prevElemHeaders = make([]*elementHeader, max)
+		prevElemHeaders = make([]*elementHeader[K, V], max)
 	}
 
 	for i := max - 1; i >= 0; {
 		prevElemHeaders[i] = prevHeader
 
 		for next := prevHeader.levels[i]; next != nil; next = prevHeader.levels[i] {
-			if comp := list.compare(score, key, next); comp <= 0 {
+			if comp := list.compare(key, next); comp <= 0 {
 				// Find the elem with the same key.
 				// Update value and return the elem.
 				if comp == 0 {
@@ -183,7 +180,7 @@ func (list *SkipList) Set(key, value interface{}) (elem *Element) {
 
 	// Create a new element.
 	level := list.randLevel()
-	elem = newElement(list, level, score, key, value)
+	elem = newElement(list, level, key, value)
 
 	// Set up prev element.
 	if prev := prevElemHeaders[0]; prev != &list.elementHeader {
@@ -236,24 +233,24 @@ func (list *SkipList) Set(key, value interface{}) (elem *Element) {
 	return
 }
 
-func (list *SkipList) findNext(start *Element, score float64, key interface{}) (elem *Element) {
+func (list *SkipList[K, V]) findNext(start *Element[K, V], key K) (elem *Element[K, V]) {
 	if list.length == 0 {
 		return
 	}
 
-	if start == nil && list.compare(score, key, list.Front()) <= 0 {
+	if start == nil && list.compare(key, list.Front()) <= 0 {
 		elem = list.Front()
 		return
 	}
-	if start != nil && list.compare(score, key, start) <= 0 {
+	if start != nil && list.compare(key, start) <= 0 {
 		elem = start
 		return
 	}
-	if list.compare(score, key, list.Back()) > 0 {
+	if list.compare(key, list.Back()) > 0 {
 		return
 	}
 
-	var prevHeader *elementHeader
+	var prevHeader *elementHeader[K, V]
 	if start == nil {
 		prevHeader = &list.elementHeader
 	} else {
@@ -264,7 +261,7 @@ func (list *SkipList) findNext(start *Element, score float64, key interface{}) (
 	// Find out previous elements on every possible levels.
 	for i >= 0 {
 		for next := prevHeader.levels[i]; next != nil; next = prevHeader.levels[i] {
-			if comp := list.compare(score, key, next); comp <= 0 {
+			if comp := list.compare(key, next); comp <= 0 {
 				elem = next
 				if comp == 0 {
 					return
@@ -292,15 +289,15 @@ func (list *SkipList) findNext(start *Element, score float64, key interface{}) (
 // If start is nil, find element from front.
 //
 // The complexity is O(log(N)).
-func (list *SkipList) FindNext(start *Element, key interface{}) (elem *Element) {
-	return list.findNext(start, list.calcScore(key), key)
+func (list *SkipList[K, V]) FindNext(start *Element[K, V], key K) (elem *Element[K, V]) {
+	return list.findNext(start, key)
 }
 
 // Find returns the first element that is greater or equal to key.
 // It's short hand for FindNext(nil, key).
 //
 // The complexity is O(log(N)).
-func (list *SkipList) Find(key interface{}) (elem *Element) {
+func (list *SkipList[K, V]) Find(key K) (elem *Element[K, V]) {
 	return list.FindNext(nil, key)
 }
 
@@ -308,15 +305,13 @@ func (list *SkipList) Find(key interface{}) (elem *Element) {
 // If the key is not found, returns nil.
 //
 // The complexity is O(log(N)).
-func (list *SkipList) Get(key interface{}) (elem *Element) {
-	score := list.calcScore(key)
-
-	firstElem := list.findNext(nil, score, key)
+func (list *SkipList[K, V]) Get(key K) (elem *Element[K, V]) {
+	firstElem := list.findNext(nil, key)
 	if firstElem == nil {
 		return
 	}
 
-	if list.compare(score, key, firstElem) != 0 {
+	if list.compare(key, firstElem) != 0 {
 		return
 	}
 
@@ -328,7 +323,7 @@ func (list *SkipList) Get(key interface{}) (elem *Element) {
 // It's short hand for Get().Value.
 //
 // The complexity is O(log(N)).
-func (list *SkipList) GetValue(key interface{}) (val interface{}, ok bool) {
+func (list *SkipList[K, V]) GetValue(key K) (val V, ok bool) {
 	element := list.Get(key)
 
 	if element == nil {
@@ -344,13 +339,12 @@ func (list *SkipList) GetValue(key interface{}) (val interface{}, ok bool) {
 // It will panic if the key doesn't exist in the list.
 //
 // The complexity is O(log(N)).
-func (list *SkipList) MustGetValue(key interface{}) interface{} {
+func (list *SkipList[K, V]) MustGetValue(key K) V {
 	element := list.Get(key)
 
 	if element == nil {
 		panic(fmt.Errorf("skiplist: cannot find key `%v` in skiplist", key))
 	}
-
 	return element.Value
 }
 
@@ -358,7 +352,7 @@ func (list *SkipList) MustGetValue(key interface{}) interface{} {
 // Returns removed element pointer if found, nil if it's not found.
 //
 // The complexity is O(log(N)).
-func (list *SkipList) Remove(key interface{}) (elem *Element) {
+func (list *SkipList[K, V]) Remove(key K) (elem *Element[K, V]) {
 	elem = list.Get(key)
 
 	if elem == nil {
@@ -372,7 +366,7 @@ func (list *SkipList) Remove(key interface{}) (elem *Element) {
 // RemoveFront removes front element node and returns the removed element.
 //
 // The complexity is O(1).
-func (list *SkipList) RemoveFront() (front *Element) {
+func (list *SkipList[K, V]) RemoveFront() (front *Element[K, V]) {
 	if list.length == 0 {
 		return
 	}
@@ -385,7 +379,7 @@ func (list *SkipList) RemoveFront() (front *Element) {
 // RemoveBack removes back element node and returns the removed element.
 //
 // The complexity is O(log(N)).
-func (list *SkipList) RemoveBack() (back *Element) {
+func (list *SkipList[K, V]) RemoveBack() (back *Element[K, V]) {
 	if list.length == 0 {
 		return
 	}
@@ -398,7 +392,7 @@ func (list *SkipList) RemoveBack() (back *Element) {
 // RemoveElement removes the elem from the list.
 //
 // The complexity is O(log(N)).
-func (list *SkipList) RemoveElement(elem *Element) {
+func (list *SkipList[K, V]) RemoveElement(elem *Element[K, V]) {
 	if elem == nil || elem.list != list {
 		return
 	}
@@ -407,7 +401,7 @@ func (list *SkipList) RemoveElement(elem *Element) {
 
 	// Find out all previous elements.
 	max := 0
-	prevElems := make([]*Element, level)
+	prevElems := make([]*Element[K, V], level)
 	prev := elem.prev
 
 	for prev != nil && max < level {
@@ -456,13 +450,13 @@ func (list *SkipList) RemoveElement(elem *Element) {
 }
 
 // MaxLevel returns current max level value.
-func (list *SkipList) MaxLevel() int {
+func (list *SkipList[K, V]) MaxLevel() int {
 	return list.maxLevel
 }
 
 // SetMaxLevel changes skip list max level.
 // If level is not greater than 0, just panic.
-func (list *SkipList) SetMaxLevel(level int) (old int) {
+func (list *SkipList[K, V]) SetMaxLevel(level int) (old int) {
 	if level <= 0 {
 		panic(fmt.Errorf("skiplist: level must be larger than 0 (current is %v)", level))
 	}
@@ -491,13 +485,13 @@ func (list *SkipList) SetMaxLevel(level int) (old int) {
 		return
 	}
 
-	levels := make([]*Element, level)
+	levels := make([]*Element[K, V], level)
 	copy(levels, list.levels)
 	list.levels = levels
 	return
 }
 
-func (list *SkipList) randLevel() int {
+func (list *SkipList[K, V]) randLevel() int {
 	estimated := list.maxLevel
 	const prob = 1 << 30 // Half of 2^31.
 	rand := list.rand
@@ -513,21 +507,6 @@ func (list *SkipList) randLevel() int {
 }
 
 // compare compares value of two elements and returns -1, 0 and 1.
-func (list *SkipList) compare(score float64, key interface{}, rhs *Element) int {
-	if score != rhs.score {
-		if score > rhs.score {
-			return 1
-		} else if score < rhs.score {
-			return -1
-		}
-
-		return 0
-	}
-
-	return list.comparable.Compare(key, rhs.key)
-}
-
-func (list *SkipList) calcScore(key interface{}) (score float64) {
-	score = list.comparable.CalcScore(key)
-	return
+func (list *SkipList[K, V]) compare(key K, rhs *Element[K, V]) int {
+	return list.comparable(key, rhs.key)
 }
