@@ -1,7 +1,7 @@
 # Skip List in Golang
 
 [![Go](https://github.com/ironpark/skiplist/workflows/Go/badge.svg)](https://github.com/ironpark/skiplist/actions)
-[![Go Doc](https://godoc.org/github.com/ironpark/skiplist?status.svg)](https://pkg.go.dev/github.com/huandu/skiplist)
+[![Go Doc](https://godoc.org/github.com/ironpark/skiplist?status.svg)](https://pkg.go.dev/github.com/ironpark/skiplist)
 [![Go Report](https://goreportcard.com/badge/github.com/ironpark/skiplist)](https://goreportcard.com/report/github.com/ironpark/skiplist)
 [![Coverage Status](https://coveralls.io/repos/github/ironpark/skiplist/badge.svg?branch=master)](https://coveralls.io/github/ironpark/skiplist?branch=master)
 
