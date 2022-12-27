@@ -1,4 +1,6 @@
 // Copyright 2011 Huan Du. All rights reserved.
+// Copyright 2022 Iron Park.
+
 // Licensed under the MIT license that can be found in the LICENSE file.
 
 // Package skiplist implement skip list data structure.
