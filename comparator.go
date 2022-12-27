@@ -2,6 +2,16 @@ package skiplist
 
 import "golang.org/x/exp/constraints"
 
+// Comparable defines a comparable func.
+type Comparable[K any] func(lhs, rhs K) int
+
+// Reverse creates a reversed comparable.
+func Reverse[K any](comparable Comparable[K]) Comparable[K] {
+	return func(lhs, rhs K) int {
+		return -comparable(lhs, rhs)
+	}
+}
+
 type Numbers interface {
 	constraints.Integer | constraints.Float | rune
 }
