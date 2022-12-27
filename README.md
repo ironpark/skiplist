@@ -2,7 +2,7 @@
 
 [![Go](https://github.com/ironpark/skiplist/workflows/Go/badge.svg)](https://github.com/ironpark/skiplist/actions)
 [![Go Doc](https://godoc.org/github.com/ironpark/skiplist?status.svg)](https://pkg.go.dev/github.com/huandu/skiplist)
-[![Go Report](https://goreportcard.com/badge/github.com/ironpark/skiplist)](https://goreportcard.com/report/github.com/huandu/skiplist)
+[![Go Report](https://goreportcard.com/badge/github.com/ironpark/skiplist)](https://goreportcard.com/report/github.com/ironpark/skiplist)
 [![Coverage Status](https://coveralls.io/repos/github/ironpark/skiplist/badge.svg?branch=master)](https://coveralls.io/github/huandu/skiplist?branch=master)
 
 This package was created by forking the skiplist library that [Huandu's](https://github.com/huandu) great job
