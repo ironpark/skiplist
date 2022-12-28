@@ -7,18 +7,27 @@ import (
 	"fmt"
 	"github.com/huandu/go-assert"
 	"testing"
+	"unsafe"
 )
 
-var testByteString = []byte(fmt.Sprint("test value"))
+var benchList *SkipList[float64, []byte]
+var discard *Element[float64, []byte]
 
-func BenchmarkInsert(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		list := New[int, interface{}](NumberComparator[int])
-		for i := 0; i < 10000000; i++ {
-			list.Set(b.N-i, testByteString)
-		}
+func init() {
+	// Initialize a big SkipList for the Get() benchmark
+	benchList = New[float64, []byte](NumberComparator[float64])
+
+	for i := 0; i <= 10000000; i++ {
+		benchList.Set(float64(i), []byte{})
 	}
+
+	// Display the sizes of our basic structs
+	var sl SkipList[float64, []byte]
+	var el Element[float64, []byte]
+	fmt.Printf("Structure sizes: SkipList is %v, Element is %v bytes\n", unsafe.Sizeof(sl), unsafe.Sizeof(el))
 }
+
+var testByteString = []byte(fmt.Sprint("test value"))
 
 func TestBasicCRUD(t *testing.T) {
 	a := assert.New(t)
@@ -31,7 +40,6 @@ func TestBasicCRUD(t *testing.T) {
 	a.Equal(list.Len(), 1)
 	a.Equal(list.Front(), elem1)
 	a.Equal(list.Back(), elem1)
-	fmt.Println(elem1.Next())
 	a.Equal(elem1.Next(), nil)
 	a.Equal(elem1.Prev(), nil)
 	a.Equal(list.Find(0), elem1)
@@ -370,43 +378,86 @@ type testCustomComparable struct {
 //		// sin(π/2)
 //	}
 
+//	func TestUint64(t *testing.T) {
+//		a := assert.New(t)
+//		list := New(Uint64)
+//		a.Assert(list.Len() == 0)
 //
-//func TestUint64(t *testing.T) {
-//	a := assert.New(t)
-//	list := New(Uint64)
-//	a.Assert(list.Len() == 0)
+//		elem1 := list.Set(uint64(0xF141000000000404), "uint64-404")
+//		a.Assert(elem1 != nil)
+//		elem2 := list.Set(uint64(0xF141000000000405), "uint64-405")
+//		a.Assert(elem2 != nil)
+//		elem3 := list.Set(uint64(0xF141000000000201), "uint64-201")
+//		a.Assert(elem3 != nil)
+//		elem4 := list.Set(uint64(0xF141000000000200), "uint64-200")
+//		a.Assert(elem4 != nil)
 //
-//	elem1 := list.Set(uint64(0xF141000000000404), "uint64-404")
-//	a.Assert(elem1 != nil)
-//	elem2 := list.Set(uint64(0xF141000000000405), "uint64-405")
-//	a.Assert(elem2 != nil)
-//	elem3 := list.Set(uint64(0xF141000000000201), "uint64-201")
-//	a.Assert(elem3 != nil)
-//	elem4 := list.Set(uint64(0xF141000000000200), "uint64-200")
-//	a.Assert(elem4 != nil)
+//		a.Assert(list.Get(uint64(0xF141000000000404)).Value == "uint64-404")
+//		a.Assert(list.Get(uint64(0xF141000000000405)).Value == "uint64-405")
+//		a.Assert(list.Get(uint64(0xF141000000000201)).Value == "uint64-201")
+//		a.Assert(list.Get(uint64(0xF141000000000200)).Value == "uint64-200")
+//	}
 //
-//	a.Assert(list.Get(uint64(0xF141000000000404)).Value == "uint64-404")
-//	a.Assert(list.Get(uint64(0xF141000000000405)).Value == "uint64-405")
-//	a.Assert(list.Get(uint64(0xF141000000000201)).Value == "uint64-201")
-//	a.Assert(list.Get(uint64(0xF141000000000200)).Value == "uint64-200")
-//}
+//	func TestInt64(t *testing.T) {
+//		a := assert.New(t)
+//		list := New(Int64)
+//		a.Assert(list.Len() == 0)
 //
-//func TestInt64(t *testing.T) {
-//	a := assert.New(t)
-//	list := New(Int64)
-//	a.Assert(list.Len() == 0)
+//		elem1 := list.Set(int64(0x2141000000000404), "int64-404")
+//		a.Assert(elem1 != nil)
+//		elem2 := list.Set(int64(0x2141000000000405), "int64-405")
+//		a.Assert(elem2 != nil)
+//		elem3 := list.Set(int64(0x2141000000000201), "int64-201")
+//		a.Assert(elem3 != nil)
+//		elem4 := list.Set(int64(0x2141000000000200), "int64-200")
+//		a.Assert(elem4 != nil)
 //
-//	elem1 := list.Set(int64(0x2141000000000404), "int64-404")
-//	a.Assert(elem1 != nil)
-//	elem2 := list.Set(int64(0x2141000000000405), "int64-405")
-//	a.Assert(elem2 != nil)
-//	elem3 := list.Set(int64(0x2141000000000201), "int64-201")
-//	a.Assert(elem3 != nil)
-//	elem4 := list.Set(int64(0x2141000000000200), "int64-200")
-//	a.Assert(elem4 != nil)
-//
-//	a.Assert(list.Get(int64(0x2141000000000404)).Value == "int64-404")
-//	a.Assert(list.Get(int64(0x2141000000000405)).Value == "int64-405")
-//	a.Assert(list.Get(int64(0x2141000000000201)).Value == "int64-201")
-//	a.Assert(list.Get(int64(0x2141000000000200)).Value == "int64-200")
-//}
+//		a.Assert(list.Get(int64(0x2141000000000404)).Value == "int64-404")
+//		a.Assert(list.Get(int64(0x2141000000000405)).Value == "int64-405")
+//		a.Assert(list.Get(int64(0x2141000000000201)).Value == "int64-201")
+//		a.Assert(list.Get(int64(0x2141000000000200)).Value == "int64-200")
+//	}
+func BenchmarkIncSet(b *testing.B) {
+	b.ReportAllocs()
+	list := New[float64, []byte](NumberComparator[float64])
+
+	for i := 0; i < b.N; i++ {
+		list.Set(float64(i), []byte{0})
+	}
+
+	b.SetBytes(int64(b.N))
+}
+
+func BenchmarkIncGet(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		res := benchList.Get(float64(i))
+		if res == nil {
+			b.Fatal("failed to Get an element that should exist")
+		}
+	}
+
+	b.SetBytes(int64(b.N))
+}
+
+func BenchmarkDecSet(b *testing.B) {
+	b.ReportAllocs()
+	list := New[float64, []byte](NumberComparator[float64])
+	for i := b.N; i > 0; i-- {
+		list.Set(float64(i), []byte{0})
+	}
+
+	b.SetBytes(int64(b.N))
+}
+
+func BenchmarkDecGet(b *testing.B) {
+	b.ReportAllocs()
+	for i := b.N; i > 0; i-- {
+		res := benchList.Get(float64(i))
+		if res == nil {
+			b.Fatal("failed to Get an element that should exist", i)
+		}
+	}
+
+	b.SetBytes(int64(b.N))
+}

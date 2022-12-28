@@ -191,7 +191,6 @@ func (list *SkipList[K, V]) Set(key K, value V) (elem *Element[K, V]) {
 	// Create a new element.
 	level := list.randLevel()
 	elem = list.pool.Get(list, level, key, value)
-	//elem = newElement(list, level, key, value)
 	// Set up prev element.
 	if prev := prevElemHeaders[0]; prev != &list.elementHeader {
 		elem.prev = prev.Element()

@@ -28,17 +28,6 @@ func (header *elementHeader[K, V]) Element() *Element[K, V] {
 	return (*Element[K, V])(unsafe.Pointer(header))
 }
 
-func newElement[K, V any](list *SkipList[K, V], level int, key K, value V) *Element[K, V] {
-	return &Element[K, V]{
-		elementHeader: elementHeader[K, V]{
-			levels: make([]*Element[K, V], level),
-		},
-		Value: value,
-		key:   key,
-		list:  list,
-	}
-}
-
 // Next returns next adjacent elem.
 func (elem *Element[K, V]) Next() *Element[K, V] {
 	if len(elem.levels) == 0 {
@@ -105,11 +94,4 @@ func (elem *Element[K, V]) reset() {
 	elem.prev = nil
 	elem.prevTopLevel = nil
 	elem.levels = elem.levels[:0]
-}
-
-func resetLevels[K, V any](levels []*Element[K, V]) {
-	levels[0] = nil
-	for bp := 1; bp < len(levels); bp *= 2 {
-		copy(levels[bp:], levels[:bp])
-	}
 }
