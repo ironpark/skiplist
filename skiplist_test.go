@@ -29,6 +29,14 @@ func init() {
 
 var testByteString = []byte(fmt.Sprint("test value"))
 
+func TestDuplicate(t *testing.T) {
+	list := New[int, any](NumberComparator[int])
+	list.Set(1, "ONE")
+	list.Set(1, "TWO")
+	fmt.Println(list.Values())
+	fmt.Println(list.Keys())
+}
+
 func TestBasicCRUD(t *testing.T) {
 	a := assert.New(t)
 	list := New[float64, any](NumberComparator[float64])

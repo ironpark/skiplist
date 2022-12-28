@@ -166,7 +166,7 @@ func (list *SkipList[K, V]) Set(key K, value V) (elem *Element[K, V]) {
 	for i := max - 1; i >= 0; {
 		prevElemHeaders[i] = prevHeader
 		for next := prevHeader.levels[i]; next != nil; next = prevHeader.levels[i] {
-			if comp := list.compare(key, next); comp <= 0 {
+			if comp := list.comparable(key, next.key); comp <= 0 {
 				// Find the elem with the same key.
 				// Update value and return the elem.
 				if comp == 0 {
@@ -247,16 +247,16 @@ func (list *SkipList[K, V]) findNext(start *Element[K, V], key K) (elem *Element
 		return
 	}
 	if start == nil {
-		if list.compare(key, list.Front()) <= 0 {
+		if list.comparable(key, list.Front().key) <= 0 {
 			return list.Front()
 		}
 	} else {
-		if list.compare(key, start) <= 0 {
+		if list.comparable(key, start.key) <= 0 {
 			return start
 		}
 	}
 
-	if list.compare(key, list.Back()) > 0 {
+	if list.comparable(key, list.Back().key) > 0 {
 		return
 	}
 
@@ -271,7 +271,7 @@ func (list *SkipList[K, V]) findNext(start *Element[K, V], key K) (elem *Element
 	// Find out previous elements on every possible levels.
 	for i >= 0 {
 		for next := prevHeader.levels[i]; next != nil; next = prevHeader.levels[i] {
-			if comp := list.compare(key, next); comp <= 0 {
+			if comp := list.comparable(key, next.key); comp <= 0 {
 				elem = next
 				if comp == 0 {
 					return
@@ -318,7 +318,7 @@ func (list *SkipList[K, V]) Get(key K) (elem *Element[K, V]) {
 		return
 	}
 
-	if list.compare(key, firstElem) != 0 {
+	if list.comparable(key, firstElem.key) != 0 {
 		return
 	}
 
@@ -533,9 +533,4 @@ func probabilityTable(probability float64, MaxLevel int) (table []float64) {
 	}
 
 	return table
-}
-
-// compare compares value of two elements and returns -1, 0 and 1.
-func (list *SkipList[K, V]) compare(key K, rhs *Element[K, V]) int {
-	return list.comparable(key, rhs.key)
 }

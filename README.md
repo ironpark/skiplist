@@ -15,6 +15,7 @@ Highlights in this implementation:
   - Memory efficiency in use cases where insertion and deletion occur complexly
 - Support custom comparable function so that any type can be used as key.
 - Rand source and max level can be changed per list. It can be useful in performance critical scenarios.
+- Optional thread-safe instance `SafeSkipList`, `SkipList`
 
 ## Warrning
 Not fully tested
@@ -26,8 +27,9 @@ Install this package through `go get`.
 ```bash
 go get github.com/ironpark/skiplist
 ```
+## Example
 
-## Basic Usage
+### Basic Usage
 
 Here is a quick sample.
 
@@ -68,7 +70,32 @@ func main() {
 }
 ```
 
+### Thread Safe
 
+```go
+package main
+
+import (
+  "fmt"
+  "github.com/ironpark/skiplist"
+  "sync"
+)
+
+func main() {
+  // Create a skip list with int key.
+  list := skiplist.NewSafe[int, struct{}](skiplist.NumberComparator[int])
+  wg := sync.WaitGroup{}
+  wg.Add(100)
+  for i := 0; i < 100; i++ {
+    go func(i int) {
+      list.Set(i, struct{}{})
+      wg.Done()
+    }(i)
+  }
+  wg.Wait()
+  fmt.Println(list.Keys())
+}
+```
 ## License
 
 This library is licensed under MIT license. See LICENSE for details.
