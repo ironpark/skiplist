@@ -103,6 +103,12 @@ func (list *SkipList[K, V]) SetRandSource(source rand.Source) {
 	list.rand = rand.New(source)
 }
 
+// SetProbability changes the current P value of the list.
+// It doesn't alter any existing data, only changes how future insert heights are calculated.
+func (list *SkipList[K, V]) SetProbability(newProbability float64) {
+	list.probTable = probabilityTable(newProbability, list.maxLevel)
+}
+
 // Front returns the first element.
 //
 // The complexity is O(1).
@@ -159,7 +165,6 @@ func (list *SkipList[K, V]) Set(key K, value V) (elem *Element[K, V]) {
 
 	for i := max - 1; i >= 0; {
 		prevElemHeaders[i] = prevHeader
-
 		for next := prevHeader.levels[i]; next != nil; next = prevHeader.levels[i] {
 			if comp := list.compare(key, next); comp <= 0 {
 				// Find the elem with the same key.
@@ -169,10 +174,8 @@ func (list *SkipList[K, V]) Set(key K, value V) (elem *Element[K, V]) {
 					elem.Value = value
 					return
 				}
-
 				break
 			}
-
 			prevHeader = &next.elementHeader
 			prevElemHeaders[i] = prevHeader
 		}
@@ -246,13 +249,11 @@ func (list *SkipList[K, V]) findNext(start *Element[K, V], key K) (elem *Element
 	}
 	if start == nil {
 		if list.compare(key, list.Front()) <= 0 {
-			elem = list.Front()
-			return
+			return list.Front()
 		}
 	} else {
 		if list.compare(key, start) <= 0 {
-			elem = start
-			return
+			return start
 		}
 	}
 
@@ -276,10 +277,8 @@ func (list *SkipList[K, V]) findNext(start *Element[K, V], key K) (elem *Element
 				if comp == 0 {
 					return
 				}
-
 				break
 			}
-
 			prevHeader = &next.elementHeader
 		}
 
@@ -289,7 +288,6 @@ func (list *SkipList[K, V]) findNext(start *Element[K, V], key K) (elem *Element
 		for i--; i >= 0 && prevHeader.levels[i] == topLevel; i-- {
 		}
 	}
-
 	return
 }
 
@@ -465,6 +463,22 @@ func (list *SkipList[K, V]) MaxLevel() int {
 	return list.maxLevel
 }
 
+// Values returns list of values
+func (list *SkipList[K, V]) Values() (values []V) {
+	for el := list.Front(); el != nil; el = el.Next() {
+		values = append(values, el.Value)
+	}
+	return
+}
+
+// Keys returns list of keys
+func (list *SkipList[K, V]) Keys() (keys []K) {
+	for el := list.Front(); el != nil; el = el.Next() {
+		keys = append(keys, el.key)
+	}
+	return
+}
+
 // SetMaxLevel changes skip list max level.
 // If level is not greater than 0, just panic.
 func (list *SkipList[K, V]) SetMaxLevel(level int) (old int) {
@@ -486,7 +500,6 @@ func (list *SkipList[K, V]) SetMaxLevel(level int) (old int) {
 				break
 			}
 		}
-
 		list.levels = list.levels[:level]
 		return
 	}
