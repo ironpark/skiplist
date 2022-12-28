@@ -470,6 +470,14 @@ func (list *SkipList[K, V]) Values() (values []V) {
 	return
 }
 
+// Index returns index of element
+func (list *SkipList[K, V]) Index(elem *Element[K, V]) (i int64) {
+	for e := elem; e != nil; e = elem.prev {
+		i++
+	}
+	return
+}
+
 // Keys returns list of keys
 func (list *SkipList[K, V]) Keys() (keys []K) {
 	for el := list.Front(); el != nil; el = el.Next() {
