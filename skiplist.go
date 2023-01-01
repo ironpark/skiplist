@@ -55,10 +55,11 @@ const preallocDefaultMaxLevel = 48
 // SkipList is the header of a skip list.
 type SkipList[K, V any] struct {
 	elementHeader[K, V]
-	probTable  []float64
-	pool       *elementPool[K, V]
-	comparable Comparable[K]
-	rand       *rand.Rand
+	probTable      []float64
+	pool           *elementPool[K, V]
+	comparable     Comparable[K]
+	prevNodesCache []*elementHeader[K, V]
+	rand           *rand.Rand
 
 	maxLevel int
 	length   int
@@ -76,13 +77,14 @@ func New[K, V any](comparable Comparable[K]) *SkipList[K, V] {
 	source := rand.NewSource(time.Now().UnixNano())
 	return &SkipList[K, V]{
 		elementHeader: elementHeader[K, V]{
-			levels: make([]*Element[K, V], DefaultMaxLevel),
+			next: make([]*Element[K, V], DefaultMaxLevel),
 		},
-		pool:       newElementPool[K, V](),
-		probTable:  probabilityTable(DefaultProbability, DefaultMaxLevel),
-		comparable: comparable,
-		rand:       rand.New(source),
-		maxLevel:   DefaultMaxLevel,
+		prevNodesCache: make([]*elementHeader[K, V], DefaultMaxLevel),
+		pool:           newElementPool[K, V](),
+		probTable:      probabilityTable(DefaultProbability, DefaultMaxLevel),
+		comparable:     comparable,
+		rand:           rand.New(source),
+		maxLevel:       DefaultMaxLevel,
 	}
 }
 
@@ -90,7 +92,7 @@ func New[K, V any](comparable Comparable[K]) *SkipList[K, V] {
 func (list *SkipList[K, V]) Init() *SkipList[K, V] {
 	list.back = nil
 	list.length = 0
-	list.levels = make([]*Element[K, V], len(list.levels))
+	list.next = make([]*Element[K, V], len(list.next))
 	return list
 }
 
@@ -113,7 +115,7 @@ func (list *SkipList[K, V]) SetProbability(newProbability float64) {
 //
 // The complexity is O(1).
 func (list *SkipList[K, V]) Front() (front *Element[K, V]) {
-	return list.levels[0]
+	return list.next[0]
 }
 
 // Back returns the last element.
@@ -135,109 +137,30 @@ func (list *SkipList[K, V]) Len() int {
 // Returns the element holding the key and value.
 //
 // The complexity is O(log(N)).
-func (list *SkipList[K, V]) Set(key K, value V) (elem *Element[K, V]) {
-	// Happy path for empty list.
-	if list.length == 0 {
-		level := list.randLevel()
-		elem = list.pool.Get(list, level, key, value)
-		//elem = newElement(list, level, key, value)
-		for i := 0; i < level; i++ {
-			list.levels[i] = elem
-		}
-
-		list.back = elem
-		list.length++
-		return
+func (list *SkipList[K, V]) Set(key K, value V) (element *Element[K, V]) {
+	prevs := list.getPrevElementNodes(key)
+	// replace
+	if element = prevs[0].next[0]; element != nil && list.comparable(element.key, key) <= 0 {
+		element.Value = value
+		return element
 	}
+	// insert
+	nextElement := prevs[0].next[0]
+	element = list.pool.Get(list, list.randLevel(), key, value)
 
-	// Find out previous elements on every possible levels.
-	max := len(list.levels)
-	prevHeader := &list.elementHeader
-
-	var maxStaticAllocElemHeaders [preallocDefaultMaxLevel]*elementHeader[K, V]
-	var prevElemHeaders []*elementHeader[K, V]
-
-	if max <= preallocDefaultMaxLevel {
-		prevElemHeaders = maxStaticAllocElemHeaders[:max]
+	for i := range element.next {
+		element.next[i] = prevs[i].next[i]
+		prevs[i].next[i] = element
+	}
+	if nextElement == nil {
+		// 끝에 인서트
+		element.prev = list.back
+		list.back = element
 	} else {
-		prevElemHeaders = make([]*elementHeader[K, V], max)
+		// 앞 혹은 중간
+		element.prev = nextElement.prev
+		nextElement.prev = element
 	}
-
-	for i := max - 1; i >= 0; {
-		prevElemHeaders[i] = prevHeader
-		for next := prevHeader.levels[i]; next != nil; next = prevHeader.levels[i] {
-			if comp := list.comparable(key, next.key); comp <= 0 {
-				// Find the elem with the same key.
-				// Update value and return the elem.
-				if comp == 0 {
-					elem = next
-					elem.Value = value
-					return
-				}
-				break
-			}
-			prevHeader = &next.elementHeader
-			prevElemHeaders[i] = prevHeader
-		}
-
-		// Skip levels if they point to the same element as topLevel.
-		topLevel := prevHeader.levels[i]
-
-		for i--; i >= 0 && prevHeader.levels[i] == topLevel; i-- {
-			prevElemHeaders[i] = prevHeader
-		}
-	}
-
-	// Create a new element.
-	level := list.randLevel()
-	elem = list.pool.Get(list, level, key, value)
-	// Set up prev element.
-	if prev := prevElemHeaders[0]; prev != &list.elementHeader {
-		elem.prev = prev.Element()
-	}
-
-	// Set up prevTopLevel.
-	if prev := prevElemHeaders[level-1]; prev != &list.elementHeader {
-		elem.prevTopLevel = prev.Element()
-	}
-
-	// Set up levels.
-	for i := 0; i < level; i++ {
-		elem.levels[i] = prevElemHeaders[i].levels[i]
-		prevElemHeaders[i].levels[i] = elem
-	}
-
-	// Find out the largest level with next element.
-	largestLevel := 0
-
-	for i := level - 1; i >= 0; i-- {
-		if elem.levels[i] != nil {
-			largestLevel = i + 1
-			break
-		}
-	}
-
-	// Adjust prev and prevTopLevel of next elements.
-	if next := elem.levels[0]; next != nil {
-		next.prev = elem
-	}
-
-	for i := 0; i < largestLevel; {
-		next := elem.levels[i]
-		nextLevel := next.Level()
-
-		if nextLevel <= level {
-			next.prevTopLevel = elem
-		}
-
-		i = nextLevel
-	}
-
-	// If the elem is the last element, set it as back.
-	if elem.Next() == nil {
-		list.back = elem
-	}
-
 	list.length++
 	return
 }
@@ -266,11 +189,11 @@ func (list *SkipList[K, V]) findNext(start *Element[K, V], key K) (elem *Element
 	} else {
 		prevHeader = &start.elementHeader
 	}
-	i := len(prevHeader.levels) - 1
+	i := len(prevHeader.next) - 1
 
-	// Find out previous elements on every possible levels.
+	// Find out previous elements on every possible next.
 	for i >= 0 {
-		for next := prevHeader.levels[i]; next != nil; next = prevHeader.levels[i] {
+		for next := prevHeader.next[i]; next != nil; next = prevHeader.next[i] {
 			if comp := list.comparable(key, next.key); comp <= 0 {
 				elem = next
 				if comp == 0 {
@@ -281,10 +204,10 @@ func (list *SkipList[K, V]) findNext(start *Element[K, V], key K) (elem *Element
 			prevHeader = &next.elementHeader
 		}
 
-		topLevel := prevHeader.levels[i]
+		topLevel := prevHeader.next[i]
 
-		// Skip levels if they point to the same element as topLevel.
-		for i--; i >= 0 && prevHeader.levels[i] == topLevel; i-- {
+		// Skip next if they point to the same element as topLevel.
+		for i--; i >= 0 && prevHeader.next[i] == topLevel; i-- {
 		}
 	}
 	return
@@ -403,58 +326,20 @@ func (list *SkipList[K, V]) RemoveElement(elem *Element[K, V]) {
 	if elem == nil || elem.list != list {
 		return
 	}
-
-	level := elem.Level()
-
-	// Find out all previous elements.
-	max := 0
-	prevElems := make([]*Element[K, V], level)
-	prev := elem.prev
-
-	for prev != nil && max < level {
-		prevLevel := len(prev.levels)
-
-		for ; max < prevLevel && max < level; max++ {
-			prevElems[max] = prev
+	prevs := list.getPrevElementNodes(elem.key)
+	tail := elem.next[0] == nil
+	// found the element, remove it
+	if element := prevs[0].next[0]; element != nil && list.comparable(element.key, elem.key) <= 0 {
+		for k, v := range element.next {
+			prevs[k].next[k] = v
 		}
-
-		for prev = prev.prevTopLevel; prev != nil && prev.Level() == prevLevel; prev = prev.prevTopLevel {
+		if tail {
+			list.back = elem.prev
 		}
+		list.length--
+		elem.reset()
+		list.pool.Put(elem)
 	}
-
-	// Adjust prev elements which point to elem directly.
-	for i := 0; i < max; i++ {
-		prevElems[i].levels[i] = elem.levels[i]
-	}
-
-	for i := max; i < level; i++ {
-		list.levels[i] = elem.levels[i]
-	}
-
-	// Adjust prev and prevTopLevel of next elements.
-	if next := elem.Next(); next != nil {
-		next.prev = elem.prev
-	}
-
-	for i := 0; i < level; {
-		next := elem.levels[i]
-
-		if next == nil || next.prevTopLevel != elem {
-			break
-		}
-
-		i = next.Level()
-		next.prevTopLevel = prevElems[i-1]
-	}
-
-	// Adjust list.Back() if necessary.
-	if list.back == elem {
-		list.back = elem.prev
-	}
-
-	list.length--
-	elem.reset()
-	list.pool.Put(elem)
 }
 
 // MaxLevel returns current max level value.
@@ -471,11 +356,11 @@ func (list *SkipList[K, V]) Values() (values []V) {
 }
 
 // Index returns index of element
-func (list *SkipList[K, V]) Index(elem *Element[K, V]) (i int64) {
-	for e := elem; e != nil; e = elem.prev {
+func (list *SkipList[K, V]) Index(elem *Element[K, V]) (i int) {
+	for e := elem; e != nil; e = elem.Next() {
 		i++
 	}
-	return
+	return list.Len() - i
 }
 
 // Keys returns list of keys
@@ -491,10 +376,14 @@ func (list *SkipList[K, V]) Keys() (keys []K) {
 func (list *SkipList[K, V]) SetMaxLevel(level int) (old int) {
 	if level <= 0 {
 		panic(fmt.Errorf("skiplist: level must be larger than 0 (current is %v)", level))
+
+	}
+	for len(list.prevNodesCache) < level {
+		list.prevNodesCache = append(list.prevNodesCache, nil)
 	}
 	list.probTable = probabilityTable(DefaultProbability, level)
 	list.maxLevel = level
-	old = len(list.levels)
+	old = len(list.next)
 
 	if level == old {
 		return
@@ -502,23 +391,23 @@ func (list *SkipList[K, V]) SetMaxLevel(level int) (old int) {
 
 	if old > level {
 		for i := old - 1; i >= level; i-- {
-			if list.levels[i] != nil {
+			if list.next[i] != nil {
 				level = i
 				break
 			}
 		}
-		list.levels = list.levels[:level]
+		list.next = list.next[:level]
 		return
 	}
 
-	if level <= cap(list.levels) {
-		list.levels = list.levels[:level]
+	if level <= cap(list.next) {
+		list.next = list.next[:level]
 		return
 	}
 
 	levels := make([]*Element[K, V], level)
-	copy(levels, list.levels)
-	list.levels = levels
+	copy(levels, list.next)
+	list.next = levels
 	return
 }
 
@@ -526,6 +415,25 @@ func (list *SkipList[K, V]) randLevel() (level int) {
 	r := float64(list.rand.Int63()) / (1 << 63)
 	for level = 1; level < list.maxLevel && r < list.probTable[level]; level++ {
 
+	}
+	return
+}
+
+// getPrevElementNodes is the private search mechanism that other functions use.
+// Finds the previous nodes on each level relative to the current Element and
+// caches them. This approach is similar to a "search finger" as described by Pugh:
+// http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.17.524
+// original by https://github.com/sean-public/fast-skiplist
+func (list *SkipList[K, V]) getPrevElementNodes(key K) (prevs []*elementHeader[K, V]) {
+	prev := &list.elementHeader
+	prevs = list.prevNodesCache
+	for i := list.maxLevel - 1; i >= 0; i-- {
+		next := prev.next[i]
+		for next != nil && list.comparable(key, next.key) > 0 {
+			prev = &next.elementHeader
+			next = next.next[i]
+		}
+		prevs[i] = prev
 	}
 	return
 }

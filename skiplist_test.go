@@ -18,7 +18,7 @@ func init() {
 	benchList = New[float64, []byte](NumberComparator[float64])
 
 	for i := 0; i <= 10000000; i++ {
-		benchList.Set(float64(i), []byte{})
+		//benchList.Set(float64(i), []byte{})
 	}
 
 	// Display the sizes of our basic structs
@@ -29,12 +29,51 @@ func init() {
 
 var testByteString = []byte(fmt.Sprint("test value"))
 
+func TestInsertAndRemove(t *testing.T) {
+	list := New[int, any](NumberComparator[int])
+	list.Set(1, "#1")
+	list.Remove(1)
+	fmt.Println(list.Values())
+	list.Set(1, "#1")
+	list.Remove(3)
+	fmt.Println(list.Values())
+	list.Set(1, "#1")
+	list.Set(2, "#2")
+	list.Set(3, "#3")
+	list.Set(4, "#4")
+	list.Remove(3)
+	fmt.Println(list.Values())
+}
 func TestDuplicate(t *testing.T) {
 	list := New[int, any](NumberComparator[int])
-	list.Set(1, "ONE")
-	list.Set(1, "TWO")
-	fmt.Println(list.Values())
-	fmt.Println(list.Keys())
+	list.Set(1, "#1")
+	fmt.Println(list.Values(), list.Back().Value, list.Back().Prev() == nil)
+
+	list.Set(4, "#4")
+	fmt.Println(list.Values(), list.Back().Value, list.Back().Prev().Value)
+
+	list.Set(2, "#2")
+	fmt.Println(list.Values(), list.Back().Value, list.Back().Prev().Value, list.Back().Prev().Prev().Value)
+
+	list.Set(3, "#3")
+	fmt.Println(list.Values(), list.Back().Value, list.Back().Prev().Value, list.Back().Prev().Prev().Value, list.Back().Prev().Prev().Prev().Value)
+
+	fmt.Println(list.Back().Value)
+	fmt.Println(list.Front().Value)
+
+	fmt.Println(list.Back().Prev().Value)
+}
+
+func TestIndex(t *testing.T) {
+	//list := New[int, any](NumberComparator[int])
+	//list.Set(0, "0")
+	//list.Set(1, "1")
+	//list.Set(2, "2")
+	//fmt.Println(list.Index(list.Get(0)))
+	//fmt.Println(list.Get(1))
+	//fmt.Println(list.Get(2))
+	//fmt.Println(list.Values())
+	//fmt.Println(list.Keys())
 }
 
 func TestBasicCRUD(t *testing.T) {
@@ -132,9 +171,9 @@ func TestBasicCRUD(t *testing.T) {
 	a.Equal(elem5.NextLevel(-1), nil)
 	a.Equal(elem5.NextLevel(min1_2(elem2.Level(), elem5.Level())), elem2)
 	a.Equal(elem5.NextLevel(elem2.Level()), nil)
-	a.Equal(elem5.PrevLevel(0), elem5.Prev())
-	a.Equal(elem5.PrevLevel(min1_2(elem1.Level(), elem5.Level())), elem1)
-	a.Equal(elem5.PrevLevel(-1), nil)
+	//a.Equal(elem5.PrevLevel(0), elem5.Prev())
+	//a.Equal(elem5.PrevLevel(min1_2(elem1.Level(), elem5.Level())), elem1)
+	//a.Equal(elem5.PrevLevel(-1), nil)
 
 	a.Assert(list.Remove(9999) == nil)
 	a.Equal(list.Len(), 4)

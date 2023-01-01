@@ -173,7 +173,7 @@ func (list *SafeSkipList[K, V]) MaxLevel() int {
 }
 
 // Index returns index of element
-func (list *SafeSkipList[K, V]) Index(elem *Element[K, V]) (i int64) {
+func (list *SafeSkipList[K, V]) Index(elem *Element[K, V]) (i int) {
 	list.lock.RLock()
 	defer list.lock.RUnlock()
 	return list.SkipList.Index(elem)

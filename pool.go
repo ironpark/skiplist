@@ -14,7 +14,7 @@ func newElementPool[K, V any]() *elementPool[K, V] {
 			New: func() interface{} {
 				return &Element[K, V]{
 					elementHeader: elementHeader[K, V]{
-						levels: make([]*Element[K, V], 0, DefaultMaxLevel/2),
+						next: make([]*Element[K, V], 0, DefaultMaxLevel/2),
 					},
 				}
 			},
@@ -25,7 +25,7 @@ func newElementPool[K, V any]() *elementPool[K, V] {
 //	func newElement[K, V any](list *SkipList[K, V], level int, key K, value V) *Element[K, V] {
 //		return &Element[K, V]{
 //			elementHeader: elementHeader[K, V]{
-//				levels: make([]*Element[K, V], level),
+//				next: make([]*Element[K, V], level),
 //			},
 //			Value: value,
 //			key:   key,
@@ -34,8 +34,8 @@ func newElementPool[K, V any]() *elementPool[K, V] {
 //	}
 func (f *elementPool[K, V]) Get(list *SkipList[K, V], level int, key K, value V) (element *Element[K, V]) {
 	element = f.pool.Get().(*Element[K, V])
-	for len(element.levels) < level {
-		element.levels = append(element.levels, nil)
+	for len(element.next) < level {
+		element.next = append(element.next, nil)
 	}
 	element.Value = value
 	element.key = key
