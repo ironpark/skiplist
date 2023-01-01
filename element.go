@@ -60,6 +60,10 @@ func (elem *Element[K, V]) Level() int {
 	return len(elem.next)
 }
 
+func (elem *Element[K, V]) Index() int {
+	return elem.list.Index(elem)
+}
+
 func (elem *Element[K, V]) reset() {
 	elem.list = nil
 	elem.prev = nil
