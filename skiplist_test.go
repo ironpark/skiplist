@@ -70,7 +70,10 @@ func TestIndex(t *testing.T) {
 	list.Set(1, "1")
 	list.Set(2, "2")
 	fmt.Println(list.Index(list.Get(0)))
+	fmt.Println(list.Index(list.Get(1)))
+	fmt.Println(list.Index(list.Get(2)))
 	fmt.Println(list.Get(1))
+
 	fmt.Println(list.Get(2))
 	fmt.Println(list.Values())
 	fmt.Println(list.Keys())

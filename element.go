@@ -3,10 +3,6 @@
 
 package skiplist
 
-import (
-	"unsafe"
-)
-
 // Element is an element node of a skip list.
 type Element[K, V any] struct {
 	elementHeader[K, V]
@@ -21,10 +17,6 @@ type Element[K, V any] struct {
 // It must be the first anonymous field in a type to make Element() work correctly.
 type elementHeader[K, V any] struct {
 	next []*Element[K, V] // Next element at all next.
-}
-
-func (header *elementHeader[K, V]) Element() *Element[K, V] {
-	return (*Element[K, V])(unsafe.Pointer(header))
 }
 
 // Next returns next adjacent elem.

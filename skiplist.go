@@ -236,16 +236,20 @@ func (list *SkipList[K, V]) Find(key K) (elem *Element[K, V]) {
 //
 // The complexity is O(log(N)).
 func (list *SkipList[K, V]) Get(key K) (elem *Element[K, V]) {
-	firstElem := list.findNext(nil, key)
-	if firstElem == nil {
-		return
+	var prev = &list.elementHeader
+	var next *Element[K, V]
+
+	for i := list.maxLevel - 1; i >= 0; i-- {
+		next = prev.next[i]
+		for next != nil && list.comparable(key, next.key) > 0 {
+			prev = &next.elementHeader
+			next = next.next[i]
+		}
 	}
 
-	if list.comparable(key, firstElem.key) != 0 {
-		return
+	if next != nil && list.comparable(next.key, key) <= 0 {
+		return next
 	}
-
-	elem = firstElem
 	return
 }
 
@@ -255,11 +259,9 @@ func (list *SkipList[K, V]) Get(key K) (elem *Element[K, V]) {
 // The complexity is O(log(N)).
 func (list *SkipList[K, V]) GetValue(key K) (val V, ok bool) {
 	element := list.Get(key)
-
 	if element == nil {
 		return
 	}
-
 	val = element.Value
 	ok = true
 	return
@@ -271,7 +273,6 @@ func (list *SkipList[K, V]) GetValue(key K) (val V, ok bool) {
 // The complexity is O(log(N)).
 func (list *SkipList[K, V]) MustGetValue(key K) V {
 	element := list.Get(key)
-
 	if element == nil {
 		panic(fmt.Errorf("skiplist: cannot find key `%v` in skiplist", key))
 	}
@@ -284,11 +285,9 @@ func (list *SkipList[K, V]) MustGetValue(key K) V {
 // The complexity is O(log(N)).
 func (list *SkipList[K, V]) Remove(key K) (elem *Element[K, V]) {
 	elem = list.Get(key)
-
 	if elem == nil {
 		return
 	}
-
 	list.RemoveElement(elem)
 	return
 }
@@ -300,7 +299,6 @@ func (list *SkipList[K, V]) RemoveFront() (front *Element[K, V]) {
 	if list.length == 0 {
 		return
 	}
-
 	front = list.Front()
 	list.RemoveElement(front)
 	return
@@ -313,7 +311,6 @@ func (list *SkipList[K, V]) RemoveBack() (back *Element[K, V]) {
 	if list.length == 0 {
 		return
 	}
-
 	back = list.back
 	list.RemoveElement(back)
 	return
@@ -357,7 +354,7 @@ func (list *SkipList[K, V]) Values() (values []V) {
 
 // Index returns index of element
 func (list *SkipList[K, V]) Index(elem *Element[K, V]) (i int) {
-	for e := elem; e != nil; e = elem.Prev() {
+	for e := elem; e != nil; e = e.Prev() {
 		i++
 	}
 	return i
