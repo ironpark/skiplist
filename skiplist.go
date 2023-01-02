@@ -325,7 +325,9 @@ func (list *skipListUnSafe[K, V]) Remove(key K) (elem *Element[K, V]) {
 		return nil
 	}
 	tail := elem.next[0] == nil
-
+	if elem.next[0] != nil && elem.next[0].prev != nil {
+		elem.next[0].prev = elem.prev
+	}
 	for k, v := range elem.next {
 		prevs[k].next[k] = v
 	}

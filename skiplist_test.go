@@ -66,6 +66,10 @@ func TestIndex(t *testing.T) {
 	a.Equal(list.Index(list.Get(0)), 0)
 	a.Equal(list.Index(list.Get(1)), 1)
 	a.Equal(list.Index(list.Get(2)), 2)
+	list.Remove(1)
+
+	a.Equal(list.Get(0).Index(), 0)
+	a.Equal(list.Get(2).Index(), 1)
 }
 
 func TestSkipList_FindNext(t *testing.T) {
