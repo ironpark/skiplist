@@ -11,10 +11,9 @@ Skip list is an ordered map. See wikipedia page [skip list](http://en.wikipedia.
 
 Highlights in this implementation:
 - Based on generic  **No reflection, No interface{}**
-- Use of memory pool 
-  - Memory efficiency in use cases where insertion and deletion occur complexly
 - Support custom comparable function so that any type can be used as key.
 - Rand source and max level can be changed per list. It can be useful in performance critical scenarios.
+- Optional memory pool use
 - Optional thread-safe instance `SafeSkipList`, `SkipList`
 
 ## Warrning
@@ -83,7 +82,7 @@ import (
 
 func main() {
   // Create a skip list with int key.
-  list := skiplist.NewSafe[int, struct{}](skiplist.NumberComparator[int])
+  list := skiplist.New[int, struct{}](skiplist.NumberComparator[int],skiplist.WithMutex())
   wg := sync.WaitGroup{}
   wg.Add(100)
   for i := 0; i < 100; i++ {

@@ -8,8 +8,8 @@ type Element[K, V any] struct {
 	*elementHeader[K, V]
 	Value V
 	key   K
-	prev  *Element[K, V]  // Points to previous adjacent elem.
-	list  *SkipList[K, V] // The list contains this elem.
+	prev  *Element[K, V] // Points to previous adjacent elem.
+	list  SkipList[K, V] // The list contains this elem.
 	skip  int
 }
 

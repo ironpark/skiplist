@@ -52,11 +52,35 @@ const (
 // preallocDefaultMaxLevel is a constant to alloc memory on stack when Set new element.
 const preallocDefaultMaxLevel = 48
 
-// SkipList is the header of a skip list.
-type SkipList[K, V any] struct {
+type SkipList[K, V any] interface {
+	Init() SkipList[K, V]
+	SetProbability(newProbability float64)
+	Front() (front *Element[K, V])
+	Back() *Element[K, V]
+	Len() int
+	Set(key K, value V) (element *Element[K, V])
+	FindNext(start *Element[K, V], key K) (next *Element[K, V])
+	Find(key K) (elem *Element[K, V])
+	Get(key K) (elem *Element[K, V])
+	GetValue(key K) (val V, ok bool)
+	MustGetValue(key K) V
+	Remove(key K) (elem *Element[K, V])
+	RemoveFront() (front *Element[K, V])
+	RemoveBack() (back *Element[K, V])
+	RemoveElement(elem *Element[K, V])
+	MaxLevel() int
+	Values() (values []V)
+	Index(elem *Element[K, V]) (i int)
+	Keys() (keys []K)
+	SetMaxLevel(level int) (old int)
+}
+
+var _ = SkipList[int, int](&skipListUnSafe[int, int]{})
+
+type skipListUnSafe[K, V any] struct {
 	elementHeader[K, V]
 	probTable      []float64
-	pool           *elementPool[K, V]
+	pool           pool[K, V]
 	comparable     Comparable[K]
 	prevNodesCache []*elementHeader[K, V]
 	rand           *rand.Rand
@@ -70,26 +94,43 @@ type SkipList[K, V any] struct {
 //
 // There are lots of pre-defined strict-typed keys like Int, Float64, String, etc.
 // We can create custom comparable by implementing Comparable interface.
-func New[K, V any](comparable Comparable[K]) *SkipList[K, V] {
-	if DefaultMaxLevel <= 0 {
-		panic("skiplist default level must not be zero or negative")
+func New[K, V any](comparable Comparable[K], options ...Option) (skipList SkipList[K, V]) {
+	option := &Options{
+		maxLevel:    DefaultMaxLevel,
+		probability: DefaultProbability,
+		useLock:     false,
+		usePool:     false,
+	}
+	for _, o := range options {
+		o(option)
 	}
 	source := rand.NewSource(time.Now().UnixNano())
-	return &SkipList[K, V]{
+	sk := &skipListUnSafe[K, V]{
 		elementHeader: elementHeader[K, V]{
-			next: make([]*Element[K, V], DefaultMaxLevel),
+			next: make([]*Element[K, V], option.maxLevel),
 		},
-		prevNodesCache: make([]*elementHeader[K, V], DefaultMaxLevel),
+		prevNodesCache: make([]*elementHeader[K, V], option.maxLevel),
 		pool:           newElementPool[K, V](),
-		probTable:      probabilityTable(DefaultProbability, DefaultMaxLevel),
+		probTable:      probabilityTable(option.probability, option.maxLevel),
 		comparable:     comparable,
 		rand:           rand.New(source),
 		maxLevel:       DefaultMaxLevel,
 	}
+	if option.usePool {
+		sk.pool = newElementPool[K, V]()
+	} else {
+		sk.pool = newFakePool[K, V]()
+	}
+	if option.useLock {
+		return &safeSkipList[K, V]{
+			skipListUnSafe: sk,
+		}
+	}
+	return sk
 }
 
 // Init resets the list and discards all existing elements.
-func (list *SkipList[K, V]) Init() *SkipList[K, V] {
+func (list *skipListUnSafe[K, V]) Init() SkipList[K, V] {
 	list.back = nil
 	list.length = 0
 	list.next = make([]*Element[K, V], len(list.next))
@@ -101,34 +142,34 @@ func (list *SkipList[K, V]) Init() *SkipList[K, V] {
 // Skiplist uses global rand defined in math/rand by default.
 // The default rand acquires a global mutex before generating any number.
 // It's not necessary if the skiplist is well protected by caller.
-func (list *SkipList[K, V]) SetRandSource(source rand.Source) {
+func (list *skipListUnSafe[K, V]) SetRandSource(source rand.Source) {
 	list.rand = rand.New(source)
 }
 
 // SetProbability changes the current P value of the list.
 // It doesn't alter any existing data, only changes how future insert heights are calculated.
-func (list *SkipList[K, V]) SetProbability(newProbability float64) {
+func (list *skipListUnSafe[K, V]) SetProbability(newProbability float64) {
 	list.probTable = probabilityTable(newProbability, list.maxLevel)
 }
 
 // Front returns the first element.
 //
 // The complexity is O(1).
-func (list *SkipList[K, V]) Front() (front *Element[K, V]) {
+func (list *skipListUnSafe[K, V]) Front() (front *Element[K, V]) {
 	return list.next[0]
 }
 
 // Back returns the last element.
 //
 // The complexity is O(1).
-func (list *SkipList[K, V]) Back() *Element[K, V] {
+func (list *skipListUnSafe[K, V]) Back() *Element[K, V] {
 	return list.back
 }
 
 // Len returns element count in this list.
 //
 // The complexity is O(1).
-func (list *SkipList[K, V]) Len() int {
+func (list *skipListUnSafe[K, V]) Len() int {
 	return list.length
 }
 
@@ -137,7 +178,7 @@ func (list *SkipList[K, V]) Len() int {
 // Returns the element holding the key and value.
 //
 // The complexity is O(log(N)).
-func (list *SkipList[K, V]) Set(key K, value V) (element *Element[K, V]) {
+func (list *skipListUnSafe[K, V]) Set(key K, value V) (element *Element[K, V]) {
 	prevs := list.getPrevElementNodes(key)
 	// replace
 	if element = prevs[0].next[0]; element != nil && list.comparable(element.key, key) <= 0 {
@@ -171,7 +212,7 @@ func (list *SkipList[K, V]) Set(key K, value V) (element *Element[K, V]) {
 // If start is nil, find element from front.
 //
 // The complexity is O(log(N)).
-func (list *SkipList[K, V]) FindNext(start *Element[K, V], key K) (next *Element[K, V]) {
+func (list *skipListUnSafe[K, V]) FindNext(start *Element[K, V], key K) (next *Element[K, V]) {
 	if list.length == 0 {
 		return
 	}
@@ -218,7 +259,7 @@ func (list *SkipList[K, V]) FindNext(start *Element[K, V], key K) (next *Element
 // It's short hand for FindNext(nil, key).
 //
 // The complexity is O(log(N)).
-func (list *SkipList[K, V]) Find(key K) (elem *Element[K, V]) {
+func (list *skipListUnSafe[K, V]) Find(key K) (elem *Element[K, V]) {
 	return list.FindNext(nil, key)
 }
 
@@ -226,7 +267,7 @@ func (list *SkipList[K, V]) Find(key K) (elem *Element[K, V]) {
 // If the key is not found, returns nil.
 //
 // The complexity is O(log(N)).
-func (list *SkipList[K, V]) Get(key K) (elem *Element[K, V]) {
+func (list *skipListUnSafe[K, V]) Get(key K) (elem *Element[K, V]) {
 	var prev = &list.elementHeader
 	var next *Element[K, V]
 
@@ -248,7 +289,7 @@ func (list *SkipList[K, V]) Get(key K) (elem *Element[K, V]) {
 // It's short hand for Get().Value.
 //
 // The complexity is O(log(N)).
-func (list *SkipList[K, V]) GetValue(key K) (val V, ok bool) {
+func (list *skipListUnSafe[K, V]) GetValue(key K) (val V, ok bool) {
 	element := list.Get(key)
 	if element == nil {
 		return
@@ -262,7 +303,7 @@ func (list *SkipList[K, V]) GetValue(key K) (val V, ok bool) {
 // It will panic if the key doesn't exist in the list.
 //
 // The complexity is O(log(N)).
-func (list *SkipList[K, V]) MustGetValue(key K) V {
+func (list *skipListUnSafe[K, V]) MustGetValue(key K) V {
 	element := list.Get(key)
 	if element == nil {
 		panic(fmt.Errorf("skiplist: cannot find key `%v` in skiplist", key))
@@ -274,7 +315,7 @@ func (list *SkipList[K, V]) MustGetValue(key K) V {
 // Returns removed element pointer if found, nil if it's not found.
 //
 // The complexity is O(log(N)).
-func (list *SkipList[K, V]) Remove(key K) (elem *Element[K, V]) {
+func (list *skipListUnSafe[K, V]) Remove(key K) (elem *Element[K, V]) {
 	prevs := list.getPrevElementNodes(key)
 	elem = prevs[0].next[0]
 	if elem == nil {
@@ -299,7 +340,7 @@ func (list *SkipList[K, V]) Remove(key K) (elem *Element[K, V]) {
 // RemoveFront removes front element node and returns the removed element.
 //
 // The complexity is O(1).
-func (list *SkipList[K, V]) RemoveFront() (front *Element[K, V]) {
+func (list *skipListUnSafe[K, V]) RemoveFront() (front *Element[K, V]) {
 	if list.length == 0 {
 		return
 	}
@@ -311,7 +352,7 @@ func (list *SkipList[K, V]) RemoveFront() (front *Element[K, V]) {
 // RemoveBack removes back element node and returns the removed element.
 //
 // The complexity is O(log(N)).
-func (list *SkipList[K, V]) RemoveBack() (back *Element[K, V]) {
+func (list *skipListUnSafe[K, V]) RemoveBack() (back *Element[K, V]) {
 	if list.length == 0 {
 		return
 	}
@@ -323,7 +364,7 @@ func (list *SkipList[K, V]) RemoveBack() (back *Element[K, V]) {
 // RemoveElement removes the elem from the list.
 //
 // The complexity is O(log(N)).
-func (list *SkipList[K, V]) RemoveElement(elem *Element[K, V]) {
+func (list *skipListUnSafe[K, V]) RemoveElement(elem *Element[K, V]) {
 	if elem == nil || elem.list != list {
 		return
 	}
@@ -331,12 +372,12 @@ func (list *SkipList[K, V]) RemoveElement(elem *Element[K, V]) {
 }
 
 // MaxLevel returns current max level value.
-func (list *SkipList[K, V]) MaxLevel() int {
+func (list *skipListUnSafe[K, V]) MaxLevel() int {
 	return list.maxLevel
 }
 
 // Values returns list of values
-func (list *SkipList[K, V]) Values() (values []V) {
+func (list *skipListUnSafe[K, V]) Values() (values []V) {
 	for el := list.Front(); el != nil; el = el.Next() {
 		values = append(values, el.Value)
 	}
@@ -344,7 +385,7 @@ func (list *SkipList[K, V]) Values() (values []V) {
 }
 
 // Index returns index of element
-func (list *SkipList[K, V]) Index(elem *Element[K, V]) (i int) {
+func (list *skipListUnSafe[K, V]) Index(elem *Element[K, V]) (i int) {
 	for e := elem; e.Prev() != nil; {
 		i++
 		e = e.Prev()
@@ -353,7 +394,7 @@ func (list *SkipList[K, V]) Index(elem *Element[K, V]) (i int) {
 }
 
 // Keys returns list of keys
-func (list *SkipList[K, V]) Keys() (keys []K) {
+func (list *skipListUnSafe[K, V]) Keys() (keys []K) {
 	for el := list.Front(); el != nil; el = el.Next() {
 		keys = append(keys, el.key)
 	}
@@ -362,7 +403,7 @@ func (list *SkipList[K, V]) Keys() (keys []K) {
 
 // SetMaxLevel changes skip list max level.
 // If level is not greater than 0, just panic.
-func (list *SkipList[K, V]) SetMaxLevel(level int) (old int) {
+func (list *skipListUnSafe[K, V]) SetMaxLevel(level int) (old int) {
 	if level <= 0 {
 		panic(fmt.Errorf("skiplist: level must be larger than 0 (current is %v)", level))
 
@@ -400,7 +441,7 @@ func (list *SkipList[K, V]) SetMaxLevel(level int) (old int) {
 	return
 }
 
-func (list *SkipList[K, V]) randLevel() (level int) {
+func (list *skipListUnSafe[K, V]) randLevel() (level int) {
 	r := float64(list.rand.Int63()) / (1 << 63)
 	for level = 1; level < list.maxLevel && r < list.probTable[level]; level++ {
 
@@ -413,7 +454,7 @@ func (list *SkipList[K, V]) randLevel() (level int) {
 // caches them. This approach is similar to a "search finger" as described by Pugh:
 // http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.17.524
 // original by https://github.com/sean-public/fast-skiplist
-func (list *SkipList[K, V]) getPrevElementNodes(key K) (prevs []*elementHeader[K, V]) {
+func (list *skipListUnSafe[K, V]) getPrevElementNodes(key K) (prevs []*elementHeader[K, V]) {
 	prev := &list.elementHeader
 	prevs = list.prevNodesCache
 	for i := list.maxLevel - 1; i >= 0; i-- {

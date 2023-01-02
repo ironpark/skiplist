@@ -6,7 +6,7 @@ import (
 )
 
 func TestSafeSkipList_Set(t *testing.T) {
-	list := NewSafe[int, struct{}](NumberComparator[int])
+	list := New[int, struct{}](NumberComparator[int], WithMutex())
 	wg := sync.WaitGroup{}
 	wg.Add(100)
 	for i := 0; i < 100; i++ {
