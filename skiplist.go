@@ -219,8 +219,47 @@ func (list *SkipList[K, V]) findNext(start *Element[K, V], key K) (elem *Element
 // If start is nil, find element from front.
 //
 // The complexity is O(log(N)).
-func (list *SkipList[K, V]) FindNext(start *Element[K, V], key K) (elem *Element[K, V]) {
-	return list.findNext(start, key)
+func (list *SkipList[K, V]) FindNext(start *Element[K, V], key K) (next *Element[K, V]) {
+	if list.length == 0 {
+		return
+	}
+	var header = &list.elementHeader
+	maxLevel := list.maxLevel
+	if start != nil {
+		if list.comparable(key, start.key) <= 0 {
+			return start
+		}
+		header = &start.elementHeader
+		maxLevel = start.Level()
+
+	}
+	if list.comparable(key, list.Front().key) <= 0 {
+		return list.Front()
+	}
+	if list.comparable(key, list.Back().key) > 0 {
+		return
+	}
+
+	for i := maxLevel - 1; i >= 0; i-- {
+		next = header.next[i]
+		// 입력키가 다음키보다 크면 점프
+		for next != nil {
+			switch list.comparable(key, next.key) {
+			case 0:
+				// key == next.key
+				return next
+			case 1:
+				// key > next.key
+				header = &next.elementHeader
+				next = next.next[i]
+			case -1:
+				// key < next.key
+				goto Next
+			}
+		}
+	Next:
+	}
+	return next
 }
 
 // Find returns the first element that is greater or equal to key.
@@ -354,8 +393,9 @@ func (list *SkipList[K, V]) Values() (values []V) {
 
 // Index returns index of element
 func (list *SkipList[K, V]) Index(elem *Element[K, V]) (i int) {
-	for e := elem; e != nil; e = e.Prev() {
+	for e := elem; e.Prev() != nil; {
 		i++
+		e = e.Prev()
 	}
 	return i
 }

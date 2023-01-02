@@ -59,6 +59,5 @@ func (elem *Element[K, V]) Index() int {
 func (elem *Element[K, V]) reset() {
 	elem.list = nil
 	elem.prev = nil
-	//elem.prevTopLevel = nil
 	elem.next = elem.next[:0]
 }

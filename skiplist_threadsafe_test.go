@@ -1,7 +1,6 @@
 package skiplist
 
 import (
-	"fmt"
 	"sync"
 	"testing"
 )
@@ -17,5 +16,5 @@ func TestSafeSkipList_Set(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
-	fmt.Println(list.Keys())
+	//fmt.Println(list.Keys())
 }
