@@ -275,11 +275,25 @@ func (list *SkipList[K, V]) MustGetValue(key K) V {
 //
 // The complexity is O(log(N)).
 func (list *SkipList[K, V]) Remove(key K) (elem *Element[K, V]) {
-	elem = list.Get(key)
+	prevs := list.getPrevElementNodes(key)
+	elem = prevs[0].next[0]
 	if elem == nil {
-		return
+		return nil
 	}
-	list.RemoveElement(elem)
+	if list.comparable(elem.key, key) != 0 {
+		return nil
+	}
+	tail := elem.next[0] == nil
+
+	for k, v := range elem.next {
+		prevs[k].next[k] = v
+	}
+	if tail {
+		list.back = elem.prev
+	}
+	list.length--
+	elem.reset()
+	list.pool.Put(elem)
 	return
 }
 
@@ -314,20 +328,7 @@ func (list *SkipList[K, V]) RemoveElement(elem *Element[K, V]) {
 	if elem == nil || elem.list != list {
 		return
 	}
-	prevs := list.getPrevElementNodes(elem.key)
-	tail := elem.next[0] == nil
-	// found the element, remove it
-	if element := prevs[0].next[0]; element != nil && list.comparable(element.key, elem.key) <= 0 {
-		for k, v := range element.next {
-			prevs[k].next[k] = v
-		}
-		if tail {
-			list.back = elem.prev
-		}
-		list.length--
-		elem.reset()
-		list.pool.Put(elem)
-	}
+	_ = list.Remove(elem.key)
 }
 
 // MaxLevel returns current max level value.
