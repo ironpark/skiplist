@@ -22,16 +22,6 @@ func newElementPool[K, V any]() *elementPool[K, V] {
 	}
 }
 
-//	func newElement[K, V any](list *SkipList[K, V], level int, key K, value V) *Element[K, V] {
-//		return &Element[K, V]{
-//			elementHeader: elementHeader[K, V]{
-//				next: make([]*Element[K, V], level),
-//			},
-//			Value: value,
-//			key:   key,
-//			list:  list,
-//		}
-//	}
 func (f *elementPool[K, V]) Get(list *SkipList[K, V], level int, key K, value V) (element *Element[K, V]) {
 	element = f.pool.Get().(*Element[K, V])
 	for len(element.next) < level {
