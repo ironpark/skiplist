@@ -12,10 +12,8 @@ func newElementPool[K, V any]() *elementPool[K, V] {
 	return &elementPool[K, V]{
 		pool: sync.Pool{
 			New: func() interface{} {
-				return &Element[K, V]{
-					elementHeader: elementHeader[K, V]{
-						next: make([]*Element[K, V], 0, DefaultMaxLevel/2),
-					},
+				return &elementHeader[K, V]{
+					next: make([]*Element[K, V], 0, DefaultMaxLevel/2),
 				}
 			},
 		},
@@ -23,17 +21,23 @@ func newElementPool[K, V any]() *elementPool[K, V] {
 }
 
 func (f *elementPool[K, V]) Get(list *SkipList[K, V], level int, key K, value V) (element *Element[K, V]) {
-	element = f.pool.Get().(*Element[K, V])
-	for len(element.next) < level {
-		element.next = append(element.next, nil)
+	header := f.pool.Get().(*elementHeader[K, V])
+	header.next = header.next[:level]
+	return &Element[K, V]{
+		list:          list,
+		Value:         value,
+		key:           key,
+		elementHeader: header,
 	}
-	element.Value = value
-	element.key = key
-	element.list = list
-	return
 }
 
 func (f *elementPool[K, V]) Put(element *Element[K, V]) {
-	f.pool.Put(element)
+	element.list = nil
+	element.prev = nil
+	next := element.next
+	for i := range next {
+		next[i] = nil
+	}
+	f.pool.Put(element.elementHeader)
 	return
 }

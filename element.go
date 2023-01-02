@@ -5,7 +5,7 @@ package skiplist
 
 // Element is an element node of a skip list.
 type Element[K, V any] struct {
-	elementHeader[K, V]
+	*elementHeader[K, V]
 	Value V
 	key   K
 	prev  *Element[K, V]  // Points to previous adjacent elem.
@@ -54,10 +54,4 @@ func (elem *Element[K, V]) Level() int {
 
 func (elem *Element[K, V]) Index() int {
 	return elem.list.Index(elem)
-}
-
-func (elem *Element[K, V]) reset() {
-	elem.list = nil
-	elem.prev = nil
-	elem.next = elem.next[:0]
 }

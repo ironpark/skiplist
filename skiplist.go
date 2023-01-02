@@ -181,7 +181,7 @@ func (list *SkipList[K, V]) FindNext(start *Element[K, V], key K) (next *Element
 		if list.comparable(key, start.key) <= 0 {
 			return start
 		}
-		header = &start.elementHeader
+		header = start.elementHeader
 		maxLevel = start.Level()
 
 	}
@@ -202,7 +202,7 @@ func (list *SkipList[K, V]) FindNext(start *Element[K, V], key K) (next *Element
 				return next
 			case 1:
 				// key > next.key
-				header = &next.elementHeader
+				header = next.elementHeader
 				next = next.next[i]
 			case -1:
 				// key < next.key
@@ -233,7 +233,7 @@ func (list *SkipList[K, V]) Get(key K) (elem *Element[K, V]) {
 	for i := list.maxLevel - 1; i >= 0; i-- {
 		next = prev.next[i]
 		for next != nil && list.comparable(key, next.key) > 0 {
-			prev = &next.elementHeader
+			prev = next.elementHeader
 			next = next.next[i]
 		}
 	}
@@ -292,7 +292,6 @@ func (list *SkipList[K, V]) Remove(key K) (elem *Element[K, V]) {
 		list.back = elem.prev
 	}
 	list.length--
-	elem.reset()
 	list.pool.Put(elem)
 	return
 }
@@ -420,7 +419,7 @@ func (list *SkipList[K, V]) getPrevElementNodes(key K) (prevs []*elementHeader[K
 	for i := list.maxLevel - 1; i >= 0; i-- {
 		next := prev.next[i]
 		for next != nil && list.comparable(key, next.key) > 0 {
-			prev = &next.elementHeader
+			prev = next.elementHeader
 			next = next.next[i]
 		}
 		prevs[i] = prev

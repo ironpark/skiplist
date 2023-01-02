@@ -226,3 +226,6 @@ func TestBasicCRUD(t *testing.T) {
 	a.Equal(list.Len(), 0)
 	a.True(list.Get(12.34) == nil)
 }
+
+//238001384
+//333830583
