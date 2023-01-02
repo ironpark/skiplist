@@ -165,54 +165,6 @@ func (list *SkipList[K, V]) Set(key K, value V) (element *Element[K, V]) {
 	return
 }
 
-func (list *SkipList[K, V]) findNext(start *Element[K, V], key K) (elem *Element[K, V]) {
-	if list.length == 0 {
-		return
-	}
-	if start == nil {
-		if list.comparable(key, list.Front().key) <= 0 {
-			return list.Front()
-		}
-	} else {
-		if list.comparable(key, start.key) <= 0 {
-			return start
-		}
-	}
-
-	if list.comparable(key, list.Back().key) > 0 {
-		return
-	}
-
-	var prevHeader *elementHeader[K, V]
-	if start == nil {
-		prevHeader = &list.elementHeader
-	} else {
-		prevHeader = &start.elementHeader
-	}
-	i := len(prevHeader.next) - 1
-
-	// Find out previous elements on every possible next.
-	for i >= 0 {
-		for next := prevHeader.next[i]; next != nil; next = prevHeader.next[i] {
-			if comp := list.comparable(key, next.key); comp <= 0 {
-				elem = next
-				if comp == 0 {
-					return
-				}
-				break
-			}
-			prevHeader = &next.elementHeader
-		}
-
-		topLevel := prevHeader.next[i]
-
-		// Skip next if they point to the same element as topLevel.
-		for i--; i >= 0 && prevHeader.next[i] == topLevel; i-- {
-		}
-	}
-	return
-}
-
 // FindNext returns the first element after start that is greater or equal to key.
 // If start is greater or equal to key, returns start.
 // If there is no such element, returns nil.
