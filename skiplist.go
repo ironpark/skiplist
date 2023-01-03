@@ -388,9 +388,11 @@ func (list *skipListUnSafe[K, V]) Values() (values []V) {
 
 // Index returns index of element
 func (list *skipListUnSafe[K, V]) Index(elem *Element[K, V]) (i int) {
-	for e := elem; e.Prev() != nil; {
+	if elem == nil {
+		return -1
+	}
+	for e := elem.Prev(); e != nil; e = e.Prev() {
 		i++
-		e = e.Prev()
 	}
 	return i
 }
